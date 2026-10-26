@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+httpx
+python-dotenv
+sqlalchemy
+itsdangerous
+authlib
+scikit-learn
+jinja2
+python-multipart
+requests
+google-genai

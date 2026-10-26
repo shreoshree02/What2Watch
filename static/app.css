@@ -1,0 +1,733 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+
+:root {
+    --bg: #09090d;
+    --card: #13131a;
+    --text: #f5f5f7;
+    --muted: #9999a8;
+    --line: #282832;
+    --accent: #b7ff4a;
+    --accent2: #8f7cff;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: radial-gradient(circle at 20% 0%, #1a1532 0, #09090d 38%), var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+button,
+input,
+select {
+    font: inherit;
+}
+
+button {
+    cursor: pointer;
+}
+
+.noise {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: .035;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Navigation */
+
+nav {
+    height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 5vw;
+    border-bottom: 1px solid #ffffff0d;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: #09090dcc;
+    backdrop-filter: blur(18px);
+}
+
+.logo {
+    font: 700 20px 'Space Grotesk', sans-serif;
+}
+
+.logo span {
+    color: var(--accent);
+}
+
+.navlinks {
+    display: flex;
+    gap: 28px;
+    color: #bbb;
+    font-size: 14px;
+}
+
+.navlinks a:hover {
+    color: white;
+}
+
+/* Hero */
+
+.hero {
+    min-height: 620px;
+    padding: 120px 7vw 90px;
+    max-width: 1100px;
+    margin: auto;
+}
+
+.eyebrow {
+    font-size: 11px;
+    letter-spacing: .18em;
+    color: var(--accent);
+    font-weight: 700;
+    margin-bottom: 15px;
+}
+
+h1 {
+    font: 700 clamp(56px, 8vw, 105px)/.9 'Space Grotesk', sans-serif;
+    letter-spacing: -.07em;
+    margin: 0 0 28px;
+}
+
+h1 span {
+    color: #9b8dff;
+}
+
+p {
+    color: #b0b0bd;
+    max-width: 580px;
+    font-size: 18px;
+    line-height: 1.6;
+}
+
+.searchbox {
+    margin-top: 40px;
+    background: #17171f;
+    border: 1px solid #343441;
+    border-radius: 18px;
+    height: 66px;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    max-width: 760px;
+    box-shadow: 0 18px 50px #0005;
+}
+
+.searchbox span {
+    font-size: 30px;
+    color: #777;
+    margin-right: 12px;
+}
+
+.searchbox input {
+    background: none;
+    border: 0;
+    outline: 0;
+    color: white;
+    width: 100%;
+    font-size: 17px;
+}
+
+.quick {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+    flex-wrap: wrap;
+}
+
+.quick button,
+.filters button {
+    border: 1px solid #353541;
+    background: #15151c;
+    color: #ddd;
+    padding: 10px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+}
+
+.quick button:hover,
+.filters button:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+/* Sections */
+
+main > section:not(.hero) {
+    padding: 80px 7vw;
+    max-width: 1400px;
+    margin: auto;
+}
+
+.sectionhead {
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    gap: 15px;
+    margin-bottom: 28px;
+}
+
+h2 {
+    font: 600 38px 'Space Grotesk', sans-serif;
+    margin: 0;
+    letter-spacing: -.04em;
+}
+
+.muted {
+    color: var(--muted);
+}
+
+/* Movie grids and cards */
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 18px;
+}
+
+.movie {
+    background: var(--card);
+    border: 1px solid #ffffff0d;
+    border-radius: 16px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform .25s, border-color .25s;
+}
+
+.movie:hover {
+    transform: translateY(-6px);
+    border-color: #ffffff25;
+}
+
+.poster {
+    aspect-ratio: 2 / 3;
+    background: #20202a center / cover no-repeat;
+}
+
+.moviebody {
+    padding: 13px;
+}
+
+.movie h3 {
+    font-size: 15px;
+    margin: 0 0 7px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.meta {
+    font-size: 12px;
+    color: #8e8e9d;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.rating {
+    color: var(--accent);
+}
+
+/* Discover filters */
+
+.filters {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+}
+
+.filters select,
+.filters input {
+    background: #15151c;
+    color: #ddd;
+    border: 1px solid #343441;
+    padding: 11px 13px;
+    border-radius: 10px;
+    max-width: 100%;
+}
+
+/* Search suggestions */
+
+.searchresults {
+    position: absolute;
+    z-index: 30;
+    max-width: 760px;
+    width: calc(100% - 14vw);
+    background: #15151d;
+    border: 1px solid #33333f;
+    border-radius: 16px;
+    margin-top: 8px;
+    overflow: hidden;
+    display: none;
+}
+
+.result {
+    padding: 12px 16px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    cursor: pointer;
+}
+
+.result:hover {
+    background: #20202a;
+}
+
+.result img {
+    width: 42px;
+    height: 62px;
+    object-fit: cover;
+    border-radius: 6px;
+}
+
+/* Profile / My Pulse */
+
+.profilebox {
+    background: linear-gradient(135deg, #171721, #111117);
+    border: 1px solid #ffffff10;
+    border-radius: 24px;
+    padding: 30px;
+    min-height: 150px;
+}
+
+.profileempty {
+    color: #aaa;
+    line-height: 1.6;
+}
+
+.pulselist {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 18px;
+    margin-top: 20px;
+}
+
+.pulsecard {
+    overflow: hidden;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, .05);
+    border: 1px solid rgba(255, 255, 255, .08);
+    transition: transform .2s ease;
+}
+
+.pulsecard:hover {
+    transform: translateY(-4px);
+}
+
+.pulsecard img {
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+    display: block;
+}
+
+.pulseinfo {
+    padding: 12px;
+}
+
+.pulseinfo h3 {
+    margin: 0 0 6px;
+    font-size: 16px;
+}
+
+.savedlabel {
+    display: inline-block;
+    margin-top: 10px;
+    font-size: 12px;
+    opacity: .8;
+}
+
+/* Movie details modal */
+
+.modal {
+    position: fixed;
+    inset: 0;
+    background: #000b;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.modal.hidden,
+.chat.hidden,
+.hidden {
+    display: none;
+}
+
+.modalcard {
+    background: #111118;
+    border: 1px solid #343441;
+    border-radius: 24px;
+    max-width: 900px;
+    width: 100%;
+    max-height: 90vh;
+    overflow: auto;
+    position: relative;
+}
+
+.close {
+    position: absolute;
+    right: 15px;
+    top: 12px;
+    border: 0;
+    background: #0009;
+    color: white;
+    font-size: 26px;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    z-index: 2;
+}
+
+.detail {
+    display: grid;
+    grid-template-columns: 250px 1fr;
+    gap: 30px;
+    padding: 30px;
+}
+
+.detailposter {
+    width: 100%;
+    border-radius: 14px;
+}
+
+.detail h2 {
+    font-size: 45px;
+    margin-bottom: 12px;
+}
+
+.chips {
+    display: flex;
+    gap: 7px;
+    flex-wrap: wrap;
+    margin: 18px 0;
+}
+
+.chip {
+    padding: 7px 10px;
+    background: #20202a;
+    border-radius: 999px;
+    color: #bbb;
+    font-size: 12px;
+}
+
+.actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 25px;
+    flex-wrap: wrap;
+}
+
+.primary {
+    background: var(--accent);
+    color: #111;
+    border: 0;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-weight: 700;
+}
+
+.secondary {
+    background: #24242d;
+    color: white;
+    border: 0;
+    padding: 12px 16px;
+    border-radius: 10px;
+}
+
+/* Chat launcher */
+
+.chatfab {
+    position: fixed;
+    right: 25px;
+    bottom: 25px;
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 0;
+    font-size: 25px;
+    z-index: 40;
+    box-shadow: 0 10px 35px #0008;
+}
+
+/* Chat window */
+
+.chat {
+    position: fixed;
+    right: 25px;
+    bottom: 95px;
+    width: 360px;
+    height: 500px;
+    background: #111118;
+    border: 1px solid #343441;
+    border-radius: 20px;
+    z-index: 40;
+    box-shadow: 0 20px 70px #000a;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.chathead {
+    padding: 12px 14px 12px 17px;
+    border-bottom: 1px solid #292932;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    flex-shrink: 0;
+    font-weight: 700;
+}
+
+.chathead > div {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.chathead strong {
+    display: block;
+}
+
+.chat-status {
+    display: block;
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 400;
+    margin-top: 4px;
+}
+
+.chathead .chat-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 36px;
+    width: 36px;
+    height: 36px;
+    margin-left: auto;
+    padding: 0;
+    border: 1px solid #343441;
+    border-radius: 50%;
+    background: #20202a;
+    color: var(--text);
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+    position: relative;
+    z-index: 5;
+}
+
+.chathead .chat-close:hover {
+    background: #343441;
+}
+
+.chatmsgs {
+    padding: 15px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex: 1;
+    min-height: 0;
+}
+
+.bubble {
+    width: fit-content;
+    max-width: 90%;
+    padding: 11px 13px;
+    border-radius: 14px;
+    margin: 8px 0;
+    font-size: 13px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+
+.ai {
+    background: #20202a;
+}
+
+.me {
+    background: #9b8dff;
+    color: #0d0d12;
+    margin-left: auto;
+}
+
+.chatinput {
+    display: flex;
+    padding: 10px;
+    border-top: 1px solid #292932;
+    gap: 8px;
+}
+
+.chatinput input {
+    flex: 1;
+    min-width: 0;
+    background: #1b1b23;
+    border: 0;
+    border-radius: 10px;
+    padding: 12px;
+    color: white;
+    outline: 0;
+}
+
+.chatinput button {
+    width: 42px;
+    flex-shrink: 0;
+    border: 0;
+    border-radius: 10px;
+    background: var(--accent);
+    font-weight: bold;
+}
+
+/* Thinking indicator */
+
+.dots::after {
+    content: "";
+    display: inline-block;
+    width: 1.2em;
+    animation: chatDots 1.2s steps(4, end) infinite;
+}
+
+@keyframes chatDots {
+    0% { content: ""; }
+    25% { content: "."; }
+    50% { content: ".."; }
+    75%, 100% { content: "..."; }
+}
+
+/* Movie cards inside the chatbot */
+
+.chat-movie-results {
+    width: 100%;
+    margin: 12px 0 18px;
+}
+
+.chat-results-title {
+    font-size: 13px;
+    font-weight: 700;
+    margin: 0 0 10px;
+}
+
+.chat-movie-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.chat-movie {
+    min-width: 0;
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform .2s ease, border-color .2s ease;
+}
+
+.chat-movie:hover {
+    transform: translateY(-3px);
+}
+
+.chat-movie .poster {
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    background: #252530 center / cover no-repeat;
+}
+
+.chat-movie .moviebody {
+    padding: 8px;
+}
+
+.chat-movie .moviebody h3 {
+    font-size: 12px;
+    line-height: 1.4;
+    margin: 0 0 6px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.chat-movie .meta {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 4px;
+    font-size: 10px;
+}
+
+.chat-movie:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* Responsive layout */
+
+@media (max-width: 700px) {
+    .navlinks {
+        display: none;
+    }
+
+    .hero {
+        padding-top: 80px;
+    }
+
+    h1 {
+        font-size: 60px;
+    }
+
+    .detail {
+        grid-template-columns: 1fr;
+    }
+
+    .detailposter {
+        max-width: 220px;
+    }
+
+    .chat {
+        left: 15px;
+        right: 15px;
+        width: auto;
+    }
+}
+
+@media (max-width: 480px) {
+    .chat {
+        left: 12px;
+        right: 12px;
+        bottom: 76px;
+        height: min(500px, calc(100dvh - 100px));
+    }
+
+    main > section:not(.hero) {
+        padding: 55px 5vw;
+    }
+
+    .sectionhead {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .profilebox {
+        padding: 20px;
+    }
+
+    .chat-movie-grid {
+        gap: 8px;
+    }
+}

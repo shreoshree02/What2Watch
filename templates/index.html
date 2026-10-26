@@ -1,0 +1,139 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>What2Watch — find your next obsession</title>
+    <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<div class="noise"></div>
+
+<nav>
+    <a class="logo" href="/">WHAT2<span>WATCH</span></a>
+    <div class="navlinks">
+        <a href="#discover">Discover</a>
+        <a href="#trending">Trending</a>
+        <a href="#profile">My Pulse</a>
+    </div>
+    <div id="auth"></div>
+</nav>
+
+<main>
+    <section class="hero">
+        <div class="eyebrow">YOUR NEXT WATCH, BUT PERSONAL</div>
+        <h1>Stop scrolling.<br><span>Start watching.</span></h1>
+        <p>Real movie data. Smarter recommendations. A little less “what should I watch?” panic.</p>
+
+        <div class="searchbox">
+            <span>⌕</span>
+            <input id="search" placeholder="Search a movie… try Interstellar" autocomplete="off">
+        </div>
+        <div id="searchResults" class="searchresults"></div>
+
+        <div class="quick">
+            <button onclick="discoverMood('8')">✨ Feel-good</button>
+            <button onclick="discoverMood('27')">👀 Need a scare</button>
+            <button onclick="discoverMood('878')">🪐 Mind-bending</button>
+        </div>
+    </section>
+
+    <section id="trending">
+        <div class="sectionhead">
+            <div>
+                <div class="eyebrow">RIGHT NOW</div>
+                <h2>Trending tonight</h2>
+            </div>
+            <span class="muted">What everyone’s watching</span>
+        </div>
+        <div id="trendingGrid" class="grid"></div>
+    </section>
+
+    <section id="discover">
+        <div class="sectionhead">
+            <div>
+                <div class="eyebrow">DISCOVER</div>
+                <h2>Find your vibe</h2>
+            </div>
+        </div>
+
+        <div class="filters">
+            <select id="genre"></select>
+            <select id="sort">
+                <option value="popularity.desc">Most popular</option>
+                <option value="vote_average.desc">Highest rated</option>
+                <option value="primary_release_date.desc">Newest</option>
+            </select>
+            <input id="minRating" type="number" min="0" max="10" step="0.5" placeholder="Min rating">
+            <button onclick="runDiscover()">Go</button>
+        </div>
+        <div id="discoverGrid" class="grid"></div>
+    </section>
+
+    <section id="profile" class="profile">
+        <div class="sectionhead">
+            <div>
+                <div class="eyebrow">PERSONAL</div>
+                <h2>My Pulse</h2>
+            </div>
+        </div>
+        <div id="profileBox" class="profilebox">
+            <div class="profileempty">
+                Sign in to build your movie taste profile and get personalized recommendations.
+            </div>
+        </div>
+    </section>
+</main>
+
+<div id="modal" class="modal hidden">
+    <div class="modalcard">
+        <button class="close" onclick="closeModal()" type="button">×</button>
+        <div id="modalBody"></div>
+    </div>
+</div>
+
+<button
+    class="chatfab"
+    onclick="toggleChat()"
+    aria-label="Open What2Watch AI chat"
+    type="button"
+>✦</button>
+
+<div id="chat" class="chat hidden">
+    <div class="chathead">
+        <div>
+            <strong>What2Watch AI</strong>
+            <span class="chat-status">● Ready to recommend</span>
+        </div>
+
+        <button
+            class="chat-close"
+            id="chatClose"
+            onclick="closeChat()"
+            type="button"
+            aria-label="Close chat"
+        >×</button>
+    </div>
+
+    <div
+        id="chatmsgs"
+        class="chatmsgs"
+        aria-live="polite"
+        aria-label="Chat messages"
+    ></div>
+
+    <div class="chatinput">
+        <input
+            id="chatInput"
+            type="text"
+            placeholder="Try Hindi thrillers, K-dramas, or Inception-like movies..."
+            autocomplete="off"
+            aria-label="Your movie request"
+        >
+        <button onclick="sendChat()" type="button" aria-label="Send message">↑</button>
+    </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
