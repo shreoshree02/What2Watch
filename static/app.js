@@ -1,11 +1,47 @@
 const IMG = 'https://image.tmdb.org/t/p/w500';
 const $ = s => document.querySelector(s);
 
+let timer;
+let chatBusy = false;
+let chatSessionCheck = 0;
+let currentMovie = null;
+
+// Safely escape text before inserting it into HTML.
+function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    })[c]);
+}
+
+// Fetch JSON and report useful errors when the server fails.
+async function apiJSON(url, options = {}) {
+    const response = await fetch(url, options);
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok) {
+        const message =
+            data?.detail ||
+            data?.error ||
+            `Request failed (${response.status})`;
+        throw new Error(message);
+    }
+
+    if (data === null) {
+        throw new Error('The server returned an invalid response.');
+    }
+
+    return data;
+}
+
 function card(m) {
     return `
         <article class="movie" onclick="openMovie(${Number(m.id)})">
             <div class="poster"
-                 style="background-image:url('${m.poster_path ? IMG + m.poster_path : ''}')">
+                 style="background-image:url('${m.poster_path ? IMG + esc(m.poster_path) : ''}')">
             </div>
             <div class="moviebody">
                 <h3>${esc(m.title || 'Untitled')}</h3>
@@ -18,159 +54,267 @@ function card(m) {
     `;
 }
 
-function esc(s) {
-    return String(s ?? '').replace(/[&<>"']/g, c => ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;'
-    })[c]);
-}
-
+// Load each homepage section independently so one failure
+// does not prevent the sign-in button from appearing.
 async function load() {
-    const t = await fetch('/api/trending').then(r => r.json());
-    $('#trendingGrid').innerHTML = t.map(card).join('');
-
-    const g = await fetch('/api/genres').then(r => r.json());
-
-    $('#genre').innerHTML =
-        '<option value="">Any genre</option>' +
-        g.map(x => `<option value="${Number(x.id)}">${esc(x.name)}</option>`).join('');
+    await Promise.allSettled([
+        loadTrending(),
+        loadGenres()
+    ]);
 
     await loadAuth();
 }
 
+async function loadTrending() {
+    const grid = $('#trendingGrid');
+    if (!grid) return;
+
+    try {
+        const movies = await apiJSON('/api/trending');
+
+        if (!Array.isArray(movies)) {
+            throw new Error('Unexpected trending response.');
+        }
+
+        grid.innerHTML = movies.map(card).join('');
+    } catch (error) {
+        grid.innerHTML =
+            `<p class="muted">${esc(error.message || 'Could not load trending movies.')}</p>`;
+        console.error('Trending error:', error);
+    }
+}
+
+async function loadGenres() {
+    const select = $('#genre');
+    if (!select) return;
+
+    try {
+        const genres = await apiJSON('/api/genres');
+
+        if (!Array.isArray(genres)) {
+            throw new Error('Unexpected genres response.');
+        }
+
+        select.innerHTML =
+            '<option value="">Any genre</option>' +
+            genres.map(g =>
+                `<option value="${Number(g.id)}">${esc(g.name)}</option>`
+            ).join('');
+    } catch (error) {
+        select.innerHTML = '<option value="">Genres unavailable</option>';
+        console.error('Genres error:', error);
+    }
+}
+
 async function loadAuth() {
-    const r = await fetch('/api/profile', { cache: 'no-store' });
     const box = $('#auth');
+    const profileBox = $('#profileBox');
 
-    if (!r.ok) {
-        box.innerHTML =
-            '<a class="quick button" href="/login/google">Sign in with Google</a>';
+    if (!box) return;
 
-        $('#profileBox').innerHTML = `
+    try {
+        const response = await fetch('/api/profile', {
+            cache: 'no-store'
+        });
+
+        if (response.status === 401 || response.status === 403) {
+            showSignedOut();
+            return;
+        }
+
+        if (!response.ok) {
+            throw new Error(`Profile request failed (${response.status})`);
+        }
+
+        const p = await response.json();
+
+        if (!p.user) {
+            showSignedOut();
+            return;
+        }
+
+        box.innerHTML = `
+            <button class="quick" type="button" onclick="logout()">
+                ${esc((p.user.name || 'User').split(' ')[0])} · Log out
+            </button>
+        `;
+
+        const interactions = Array.isArray(p.interactions)
+            ? p.interactions
+            : [];
+
+        const savedMovies = interactions.filter(
+            movie => movie.action === 'saved'
+        );
+
+        if (!profileBox) return;
+
+        if (savedMovies.length === 0) {
+            profileBox.innerHTML = `
+                <div class="profileintro">
+                    <div>
+                        <b>${esc(p.user.name || 'User')}</b>
+                        <div class="muted">0 saved movies</div>
+                    </div>
+                </div>
+                <div class="profileempty">
+                    You haven't saved any movies yet. Start exploring!
+                </div>
+            `;
+            return;
+        }
+
+        const cards = savedMovies.map(movie => `
+            <div class="pulsecard">
+                <img
+                    src="${movie.poster_path
+                        ? 'https://image.tmdb.org/t/p/w342' + esc(movie.poster_path)
+                        : ''}"
+                    alt="${esc(movie.title || 'Movie poster')}"
+                >
+                <div class="pulseinfo">
+                    <h3>${esc(movie.title || 'Untitled')}</h3>
+                    <div class="muted">💾 Saved</div>
+                    <button
+                        class="secondary"
+                        type="button"
+                        onclick="removeSavedMovie(${Number(movie.movie_id)}, event)"
+                    >
+                        Remove
+                    </button>
+                </div>
+            </div>
+        `).join('');
+
+        profileBox.innerHTML = `
+            <div class="profileintro">
+                <div>
+                    <b>${esc(p.user.name || 'User')}</b>
+                    <div class="muted">
+                        ${savedMovies.length} saved movie${savedMovies.length === 1 ? '' : 's'}
+                    </div>
+                </div>
+            </div>
+            <div class="pulselist">${cards}</div>
+        `;
+    } catch (error) {
+        console.error('Profile loading error:', error);
+
+        // Don't silently leave the auth area blank on a network error.
+        box.innerHTML = `
+            <a class="quick button" href="/login/google">
+                Sign in with Google
+            </a>
+        `;
+
+        if (profileBox) {
+            profileBox.innerHTML = `
+                <div class="profileempty">
+                    Profile couldn't load. Please refresh and try again.
+                </div>
+            `;
+        }
+    }
+}
+
+function showSignedOut() {
+    const box = $('#auth');
+    const profileBox = $('#profileBox');
+
+    if (box) {
+        box.innerHTML = `
+            <a class="quick button" href="/login/google">
+                Sign in with Google
+            </a>
+        `;
+    }
+
+    if (profileBox) {
+        profileBox.innerHTML = `
             <div class="profileempty">
                 Sign in to build your movie taste profile and get personalized recommendations.
             </div>
         `;
-        return;
     }
-
-    const p = await r.json();
-
-    box.innerHTML = `
-        <button class="quick" onclick="logout()">
-            ${esc((p.user.name || 'User').split(' ')[0])} · Log out
-        </button>
-    `;
-
-    const interactions = p.interactions || [];
-    const savedMovies = interactions.filter(movie => movie.action === 'saved');
-
-    if (savedMovies.length === 0) {
-        $('#profileBox').innerHTML = `
-            <div class="profileintro">
-                <div>
-                    <b>${esc(p.user.name || 'User')}</b>
-                    <div class="muted">0 saved movies</div>
-                </div>
-            </div>
-            <div class="profileempty">
-                You haven't saved any movies yet. Start exploring!
-            </div>
-        `;
-        return;
-    }
-
-    const cards = savedMovies.map(movie => `
-        <div class="pulsecard">
-            <img
-                src="${movie.poster_path ? 'https://image.tmdb.org/t/p/w342' + esc(movie.poster_path) : ''}"
-                alt="${esc(movie.title || 'Movie poster')}"
-            >
-
-            <div class="pulseinfo">
-                <h3>${esc(movie.title || 'Untitled')}</h3>
-
-                <div class="muted">💾 Saved</div>
-
-                <button
-                    class="secondary"
-                    type="button"
-                    onclick="removeSavedMovie(${Number(movie.movie_id)}, event)"
-                >
-                    Remove
-                </button>
-            </div>
-        </div>
-    `).join('');
-
-    $('#profileBox').innerHTML = `
-        <div class="profileintro">
-            <div>
-                <b>${esc(p.user.name || 'User')}</b>
-                <div class="muted">
-                    ${savedMovies.length} saved movie${savedMovies.length === 1 ? '' : 's'}
-                </div>
-            </div>
-        </div>
-
-        <div class="pulselist">${cards}</div>
-    `;
 }
 
+// Movie search
 async function search() {
-    const q = $('#search').value.trim();
+    const input = $('#search');
+    const results = $('#searchResults');
+
+    if (!input || !results) return;
+
+    const q = input.value.trim();
 
     if (q.length < 2) {
-        $('#searchResults').style.display = 'none';
+        results.style.display = 'none';
         return;
     }
 
-    const r = await fetch('/api/search?q=' + encodeURIComponent(q));
-    const x = await r.json();
+    try {
+        const movies = await apiJSON(
+            '/api/search?q=' + encodeURIComponent(q)
+        );
 
-    $('#searchResults').innerHTML = x.slice(0, 6).map(m => `
-        <div class="result" onclick="openMovie(${Number(m.id)})">
-            <img src="${m.poster_path ? IMG + m.poster_path : ''}" alt="">
-            <div>
-                <b>${esc(m.title || 'Untitled')}</b>
-                <div class="muted">
-                    ${esc((m.release_date || '').slice(0, 4))} ·
-                    ★ ${Number(m.vote_average || 0).toFixed(1)}
+        if (!Array.isArray(movies)) {
+            throw new Error('Unexpected search response.');
+        }
+
+        results.innerHTML = movies.slice(0, 6).map(m => `
+            <div class="result" onclick="openMovie(${Number(m.id)})">
+                <img
+                    src="${m.poster_path ? IMG + esc(m.poster_path) : ''}"
+                    alt=""
+                >
+                <div>
+                    <b>${esc(m.title || 'Untitled')}</b>
+                    <div class="muted">
+                        ${esc((m.release_date || '').slice(0, 4))} ·
+                        ★ ${Number(m.vote_average || 0).toFixed(1)}
+                    </div>
                 </div>
             </div>
-        </div>
-    `).join('');
+        `).join('');
 
-    $('#searchResults').style.display = x.length ? 'block' : 'none';
+        results.style.display = movies.length ? 'block' : 'none';
+    } catch (error) {
+        console.error('Search error:', error);
+        results.innerHTML =
+            `<div class="muted">${esc(error.message || 'Search failed.')}</div>`;
+        results.style.display = 'block';
+    }
 }
 
-let timer;
-
-$('#search').addEventListener('input', () => {
+$('#search')?.addEventListener('input', () => {
     clearTimeout(timer);
-    timer = setTimeout(() => {
-        search().catch(error => console.error('Search error:', error));
-    }, 250);
+    timer = setTimeout(search, 250);
 });
 
+// Movie details
 async function openMovie(id) {
-    $('#modal').classList.remove('hidden');
-    $('#modalBody').innerHTML = '<p>Loading…</p>';
+    id = Number(id);
+
+    if (!Number.isInteger(id) || id <= 0) return;
+
+    const modal = $('#modal');
+    const body = $('#modalBody');
+
+    if (!modal || !body) return;
+
+    modal.classList.remove('hidden');
+    body.innerHTML = '<p>Loading…</p>';
 
     try {
-        const response = await fetch('/api/movie/' + Number(id));
-        if (!response.ok) throw new Error('Could not load movie details.');
+        const m = await apiJSON('/api/movie/' + id);
 
-        const m = await response.json();
+        currentMovie = m;
 
-        $('#modalBody').innerHTML = `
+        body.innerHTML = `
             <div class="detail">
                 <img
                     class="detailposter"
-                    src="${m.poster_path ? IMG + m.poster_path : ''}"
+                    src="${m.poster_path ? IMG + esc(m.poster_path) : ''}"
                     alt=""
                 >
 
@@ -198,14 +342,20 @@ async function openMovie(id) {
                     <p>${esc(m.overview || 'No overview available.')}</p>
 
                     <div class="actions">
-                        <button class="primary"
-                                onclick="recommend(${Number(m.id)})">
+                        <button
+                            class="primary"
+                            type="button"
+                            onclick="recommend(${Number(m.id)})"
+                        >
                             Find my next watch →
                         </button>
 
-                        <button class="secondary"
-                                id="saveMovieButton"
-                                onclick="saveMovie(${JSON.stringify(m).replace(/</g, '\\u003c').replace(/'/g, '&#39;')})">
+                        <button
+                            class="secondary"
+                            id="saveMovieButton"
+                            type="button"
+                            onclick="saveCurrentMovie()"
+                        >
                             ♡ Save
                         </button>
                     </div>
@@ -215,73 +365,80 @@ async function openMovie(id) {
             </div>
         `;
     } catch (error) {
-        $('#modalBody').innerHTML =
+        body.innerHTML =
             `<p class="muted">${esc(error.message || 'Could not load movie details.')}</p>`;
+        console.error('Movie details error:', error);
     }
 }
 
 function closeModal() {
-    $('#modal').classList.add('hidden');
+    $('#modal')?.classList.add('hidden');
 }
 
-async function recommend(id) {
-    $('#recs').innerHTML = '<p>Finding your matches…</p>';
-
-    try {
-        const r = await fetch('/api/recommend', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ movie_id: Number(id) })
-        });
-
-        if (r.status === 401) {
-            $('#recs').innerHTML =
-                '<div class="muted">Sign in first to personalize recommendations.</div>';
-            return;
-        }
-
-        const x = await r.json();
-
-        if (!r.ok) {
-            throw new Error(x.detail || 'Could not find recommendations.');
-        }
-
-        $('#recs').innerHTML =
-            '<h3>Because you liked this</h3><div class="grid">' +
-            x.map(card).join('') +
-            '</div>';
-    } catch (error) {
-        $('#recs').innerHTML =
-            `<div class="muted">${esc(error.message || 'Could not find recommendations.')}</div>`;
+// Save uses the stored movie object rather than injecting JSON into
+// an inline HTML attribute.
+async function saveCurrentMovie() {
+    if (!currentMovie) {
+        alert('Please reopen the movie and try again.');
+        return;
     }
+
+    await saveMovie(currentMovie);
 }
 
 async function saveMovie(m) {
-    const r = await fetch('/api/interactions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            movie_id: Number(m.id),
-            title: m.title,
-            poster_path: m.poster_path,
-            action: 'saved'
-        })
-    });
+    if (!m || !Number.isInteger(Number(m.id)) || Number(m.id) <= 0) {
+        alert('Invalid movie.');
+        return;
+    }
 
-    if (r.status === 401) {
-        location.href = '/login/google';
-    } else if (r.ok) {
+    const button = $('#saveMovieButton');
+
+    if (button) {
+        button.disabled = true;
+        button.textContent = 'Saving…';
+    }
+
+    try {
+        const response = await fetch('/api/interactions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                movie_id: Number(m.id),
+                title: m.title || 'Untitled',
+                poster_path: m.poster_path || '',
+                action: 'saved'
+            })
+        });
+
+        if (response.status === 401 || response.status === 403) {
+            location.href = '/login/google';
+            return;
+        }
+
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            throw new Error(
+                result.detail || 'Could not save this movie.'
+            );
+        }
+
         alert('Saved to My Pulse ✦');
         await loadAuth();
-    } else {
-        alert('Could not save this movie. Please try again.');
+    } catch (error) {
+        console.error('Save movie error:', error);
+        alert(error.message || 'Could not save this movie. Please try again.');
+    } finally {
+        if (button && document.body.contains(button)) {
+            button.disabled = false;
+            button.textContent = '♡ Save';
+        }
     }
 }
 
 async function removeSavedMovie(movieId, event) {
-    if (event) {
-        event.stopPropagation();
-    }
+    event?.stopPropagation();
 
     movieId = Number(movieId);
 
@@ -290,9 +447,7 @@ async function removeSavedMovie(movieId, event) {
         return;
     }
 
-    if (!confirm('Remove this movie from My Pulse?')) {
-        return;
-    }
+    if (!confirm('Remove this movie from My Pulse?')) return;
 
     try {
         const response = await fetch(
@@ -300,7 +455,7 @@ async function removeSavedMovie(movieId, event) {
             { method: 'DELETE' }
         );
 
-        if (response.status === 401) {
+        if (response.status === 401 || response.status === 403) {
             alert('Please sign in again.');
             await loadAuth();
             return;
@@ -309,42 +464,99 @@ async function removeSavedMovie(movieId, event) {
         const result = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-            throw new Error(result.detail || 'Could not remove this movie.');
+            throw new Error(
+                result.detail || 'Could not remove this movie.'
+            );
         }
 
         await loadAuth();
     } catch (error) {
-        alert(error.message || 'Could not remove this movie.');
         console.error('Remove movie error:', error);
+        alert(error.message || 'Could not remove this movie.');
     }
 }
 
+// Recommendations
+async function recommend(id) {
+    const recs = $('#recs');
+    if (!recs) return;
+
+    recs.innerHTML = '<p>Finding your matches…</p>';
+
+    try {
+        const x = await apiJSON('/api/recommend', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ movie_id: Number(id) })
+        });
+
+        if (!Array.isArray(x)) {
+            throw new Error('Unexpected recommendations response.');
+        }
+
+        recs.innerHTML =
+            '<h3>Because you liked this</h3><div class="grid">' +
+            x.map(card).join('') +
+            '</div>';
+    } catch (error) {
+        if (/401|not authenticated|sign in/i.test(error.message)) {
+            recs.innerHTML =
+                '<div class="muted">Sign in first to personalize recommendations.</div>';
+            return;
+        }
+
+        recs.innerHTML =
+            `<div class="muted">${esc(error.message || 'Could not find recommendations.')}</div>`;
+        console.error('Recommendation error:', error);
+    }
+}
+
+// Discover movies
 async function runDiscover() {
-    const g = $('#genre').value;
-    const s = $('#sort').value;
-    const rating = $('#minRating').value;
+    const genre = $('#genre');
+    const sort = $('#sort');
+    const rating = $('#minRating');
+    const grid = $('#discoverGrid');
 
-    let u = `/api/discover?sort=${encodeURIComponent(s)}&min_rating=${encodeURIComponent(rating || 0)}`;
+    if (!genre || !sort || !rating || !grid) return;
 
-    if (g) {
-        u += `&genre_id=${encodeURIComponent(g)}`;
+    const params = new URLSearchParams({
+        sort: sort.value,
+        min_rating: rating.value || '0'
+    });
+
+    if (genre.value) {
+        params.set('genre_id', genre.value);
     }
 
-    const x = await fetch(u).then(r => r.json());
-    $('#discoverGrid').innerHTML = x.map(card).join('');
+    grid.innerHTML = '<p class="muted">Loading movies…</p>';
+
+    try {
+        const movies = await apiJSON('/api/discover?' + params.toString());
+
+        if (!Array.isArray(movies)) {
+            throw new Error('Unexpected discover response.');
+        }
+
+        grid.innerHTML = movies.map(card).join('');
+    } catch (error) {
+        grid.innerHTML =
+            `<p class="muted">${esc(error.message || 'Could not load movies.')}</p>`;
+        console.error('Discover error:', error);
+    }
 }
 
-function discoverMood(g) {
-    $('#genre').value = g;
-    document.querySelector('#discover').scrollIntoView({ behavior: 'smooth' });
+function discoverMood(genreId) {
+    const genre = $('#genre');
+    const section = $('#discover');
+
+    if (genre) genre.value = genreId;
+    section?.scrollIntoView({ behavior: 'smooth' });
+
     runDiscover();
 }
 
-/* Chat window controls */
-
-let chatBusy = false;
-let chatSessionCheck = 0;
-
+// Chat controls
 function chatMessage(text, type = 'ai') {
     const messages = $('#chatmsgs');
     if (!messages) return;
@@ -391,9 +603,7 @@ async function toggleChat() {
     const chat = $('#chat');
     if (!chat) return;
 
-    const opening = chat.classList.contains('hidden');
-
-    if (!opening) {
+    if (!chat.classList.contains('hidden')) {
         chat.classList.add('hidden');
         chatSessionCheck++;
         return;
@@ -420,24 +630,18 @@ async function toggleChat() {
 }
 
 function closeChat() {
-    const chat = $('#chat');
-
-    if (chat) {
-        chat.classList.add('hidden');
-    }
-
+    $('#chat')?.classList.add('hidden');
     chatSessionCheck++;
 }
 
 async function sendChat() {
     const input = $('#chatInput');
-    const chatMessages = $('#chatmsgs');
+    const messages = $('#chatmsgs');
 
-    if (!input || !chatMessages) return;
+    if (!input || !messages || chatBusy) return;
 
     const message = input.value.trim();
-
-    if (!message || chatBusy) return;
+    if (!message) return;
 
     const isLoggedIn = await checkChatLogin();
 
@@ -448,7 +652,7 @@ async function sendChat() {
 
     chatBusy = true;
 
-    chatMessages.insertAdjacentHTML(
+    messages.insertAdjacentHTML(
         'beforeend',
         `<div class="bubble me">${esc(message)}</div>`
     );
@@ -457,12 +661,12 @@ async function sendChat() {
 
     const thinkingId = `chatThinking${Date.now()}`;
 
-    chatMessages.insertAdjacentHTML(
+    messages.insertAdjacentHTML(
         'beforeend',
         `<div class="bubble ai" id="${thinkingId}">Thinking<span class="dots"></span></div>`
     );
 
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    messages.scrollTop = messages.scrollHeight;
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
@@ -477,7 +681,7 @@ async function sendChat() {
 
         const result = await response.json().catch(() => ({}));
 
-        if (response.status === 401) {
+        if (response.status === 401 || response.status === 403) {
             showChatWelcome(false);
             return;
         }
@@ -500,24 +704,17 @@ async function sendChat() {
             html += `
                 <div class="chat-movie-results">
                     <div class="chat-results-title">Movies for you</div>
-
                     <div class="chat-movie-grid">
                         ${movies.map(movie => `
                             <article class="movie chat-movie"
                                 onclick="openMovie(${Number(movie.id)})">
-
                                 <div class="poster"
-                                    style="background-image:url('${movie.poster_path ? IMG + movie.poster_path : ''}')">
+                                    style="background-image:url('${movie.poster_path ? IMG + esc(movie.poster_path) : ''}')">
                                 </div>
-
                                 <div class="moviebody">
                                     <h3>${esc(movie.title || 'Untitled')}</h3>
-
                                     <div class="meta">
-                                        <span>
-                                            ${esc((movie.release_date || '').slice(0, 4) || '—')}
-                                        </span>
-
+                                        <span>${esc((movie.release_date || '').slice(0, 4) || '—')}</span>
                                         <span class="rating">
                                             ★ ${Number(movie.vote_average || 0).toFixed(1)}
                                         </span>
@@ -531,8 +728,7 @@ async function sendChat() {
         }
 
         document.getElementById(thinkingId)?.remove();
-        chatMessages.insertAdjacentHTML('beforeend', html);
-
+        messages.insertAdjacentHTML('beforeend', html);
     } catch (error) {
         document.getElementById(thinkingId)?.remove();
 
@@ -542,22 +738,21 @@ async function sendChat() {
                 ? 'Could not connect to the server. Check your connection and try again.'
                 : error.message || 'Something went wrong. Please try again.';
 
-        chatMessages.insertAdjacentHTML(
+        messages.insertAdjacentHTML(
             'beforeend',
             `<div class="bubble ai">${esc(errorMessage)}</div>`
         );
 
         console.error('Chat error:', error);
-
     } finally {
         clearTimeout(timeoutId);
         chatBusy = false;
-        chatMessages.scrollTop = chatMessages.scrollHeight;
+        messages.scrollTop = messages.scrollHeight;
         input.focus();
     }
 }
 
-document.addEventListener('keydown', function (event) {
+document.addEventListener('keydown', event => {
     if (
         event.key === 'Enter' &&
         document.activeElement?.id === 'chatInput'
@@ -568,8 +763,18 @@ document.addEventListener('keydown', function (event) {
 });
 
 async function logout() {
-    await fetch('/logout', { method: 'POST' });
+    try {
+        await fetch('/logout', { method: 'POST' });
+    } catch (error) {
+        console.error('Logout error:', error);
+    }
+
     location.reload();
 }
 
-load();
+// Initialize the page.
+load().catch(error => {
+    console.error('Page initialization error:', error);
+    // Even if initialization fails unexpectedly, try to show sign-in.
+    showSignedOut();
+});
